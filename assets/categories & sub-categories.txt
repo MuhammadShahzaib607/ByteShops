@@ -1,0 +1,84 @@
+{
+  "RETAIL": [
+    {
+      "id": "grocery_marts",
+      "name": "Grocery & Marts",
+      "subCategories": ["Supermarket", "General Store", "Fruit & Vegetable Vendor", "Meat Shop"],
+      "description": "Daily essentials, household items, packaged food, and fresh produce."
+    },
+    {
+      "id": "clothing_fashion",
+      "name": "Clothing & Fashion",
+      "subCategories": ["Men's Wear", "Women's Boutique", "Kids Clothing", "Footwear & Shoes", "Jewelry & Accessories"],
+      "description": "Apparel, garments, trendy outfits, traditional wear, and fashion accessories."
+    },
+    {
+      "id": "electronics_gadgets",
+      "name": "Electronics & Mobile Shops",
+      "subCategories": ["Mobile Sales & Accessories", "Computers & Laptops", "Home Appliances", "Gaming Gear"],
+      "description": "Smartphones, tech gadgets, repair parts, laptops, and consumer electronics."
+    },
+    {
+      "id": "art_stationery",
+      "name": "Art, Crafts & Stationery",
+      "subCategories": ["Arabic Calligraphy Tools", "Painting & Fine Arts", "School & Office Stationery", "Gifts & Novelties"],
+      "description": "Art supplies, handmade crafts, books, notebooks, calligraphy items, and materials."
+    },
+    {
+      "id": "pharmacy_healthcare_retail",
+      "name": "Pharmacy & Medical Store",
+      "subCategories": ["Medicines", "Surgical Equipment", "Baby Care Products", "Cosmetics & Skincare"],
+      "description": "Prescription medicines, over-the-counter drugs, healthcare products, and retail medical supplies."
+    },
+    {
+      "id": "bakery_sweets",
+      "name": "Bakery & Confectionery",
+      "subCategories": ["Cakes & Pastries", "Traditional Sweets (Mithai)", "Café & Snacks", "Dairy Products"],
+      "description": "Freshly baked goods, local sweets, milk, yogurt, and quick snacks."
+    },
+    {
+      "id": "home_hardware",
+      "name": "Hardware & Home Decor",
+      "subCategories": ["Sanitary & Plumbing Retail", "Electrical Supplies", "Paints & Tools", "Furniture & Decor"],
+      "description": "Construction tools, building materials, home improvement gear, and interior items."
+    }
+  ],
+  "SERVICE": [
+    {
+      "id": "health_clinics",
+      "name": "Medical Clinics & Doctors",
+      "subCategories": ["General Physician", "Dentist", "Pediatrician (Child Specialist)", "Physiotherapy", "Diagnostic Lab"],
+      "description": "Doctor appointments, regular health checkups, dental care, and professional medical services."
+    },
+    {
+      "id": "beauty_wellness",
+      "name": "Salons, Parlors & Wellness",
+      "subCategories": ["Women's Beauty Parlor", "Men's Hair Salon / Barbershop", "Spa & Massage Center", "Bridal Makeup Studio"],
+      "description": "Haircuts, styling, skin treatments, bridal grooming, and personal care services."
+    },
+    {
+      "id": "technical_experts",
+      "name": "On-Demand Technicians",
+      "subCategories": ["Electrician", "Plumber", "AC & Refrigerator Repair", "Home Appliance Technician"],
+      "description": "Professional home maintenance services, structural repairs, and expert technicians."
+    },
+    {
+      "id": "education_coaching",
+      "name": "Tuitions, Academies & Training",
+      "subCategories": ["Home Tutor Slots", "Coaching Center Batches", "Language & IT Classes", "Fitness & Gym Trainers"],
+      "description": "Booking academic slots, professional skill training courses, and fitness sessions."
+    },
+    {
+      "id": "automobile_services",
+      "name": "Automobile & Vehicle Care",
+      "subCategories": ["Car Wash & Detailing", "Auto Mechanic & Repairing", "Bike Service Station", "Tyre & Battery Shop"],
+      "description": "Vehicle maintenance, dynamic detailing, engine tuning, and quick car/bike washes."
+    },
+    {
+      "id": "consultancies_legal",
+      "name": "Professional Consultancies",
+      "subCategories": ["Tax Consultant & Filer Services", "Legal Advisor / Lawyer", "Business & Marketing Strategist"],
+      "description": "Professional consultation sessions, legal help, corporate tax filing, and advisory appointments."
+    }
+  ]
+}
