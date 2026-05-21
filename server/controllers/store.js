@@ -145,40 +145,6 @@ export const editStore = async (req, res) => {
   }
 };
 
-export const deleteStore = async (req, res) => {
-  try {
-    const storeId = req.store._id;
-    const ownerId = req.user.userId;
-    const storeSlug = req.store.slug;
-
-    await Promise.all([
-      Store.findByIdAndDelete(storeId),
-      User.findByIdAndUpdate(ownerId, {
-        $pull: { stores: storeId },
-        $inc: { storesLimit: 1 }
-      })
-    ]);
-
-    if (redisClient && redisClient.isOpen) {
-      const storeCacheKey = `store:${storeId}`;
-      const ownerStoresCacheKey = `user:stores:${ownerId}`;
-      const slugCacheKey = `store:slug:${storeSlug}`;
-
-      await Promise.all([
-        redisClient.del(storeCacheKey),
-        redisClient.del(ownerStoresCacheKey),
-        redisClient.del(slugCacheKey)
-      ]);
-    }
-
-    return sendRes(res, 200, true, "Store deleted successfully");
-
-  } catch (error) {
-    console.error("Delete Store Error:", error);
-    return sendRes(res, 500, false, "Internal server error: " + error.message);
-  }
-};
-
 export const getSingleStore = async (req, res) => {
   try {
     const { storeId } = req.params;

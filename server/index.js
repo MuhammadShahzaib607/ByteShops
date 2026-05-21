@@ -6,16 +6,21 @@ import "./utils/redisClient.js"
 import authRoutes from "./routes/auth.js"
 import storeRoutes from "./routes/store.js"
 import storeViewRoutes from "./routes/storeView.js"
+import productRoutes from "./routes/product.js"
+import serviceRoutes from "./routes/service.js"
 import { sendRes } from "./utils/responseHandler.js"
 
 dotenv.config()
 const app = express()
 
+app.set("trust proxy", 1);
 app.use(cors())
 app.use(express.json())
 app.use("/api/user", authRoutes)
 app.use("/api/store", storeRoutes)
 app.use("/api/views", storeViewRoutes)
+app.use("/api/product", productRoutes)
+app.use("/api/service", serviceRoutes)
 
 app.get("/", (req, res)=> {
     sendRes(res, 200, true, "API hit successfully")

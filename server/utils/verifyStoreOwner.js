@@ -5,7 +5,6 @@ export const verifyStoreOwner = async (req, res, next) => {
   try {
     const userId = req.user.userId;
     const storeId = req.body?.storeId || req.params?.storeId;
-    console.log(storeId)
 
     if (!storeId) {
       return sendRes(res, 400, false, "Store ID is required for verification");
