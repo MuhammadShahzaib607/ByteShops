@@ -62,13 +62,19 @@ export const addProduct = async (req, res) => {
       const storeProductsCacheKey = `store:products:${storeId}`;
       const ownerStoresCacheKey = `user:stores:${ownerId}`;
       const inventoryCacheKey = `store:inventory:${storeId}`;
-      
+
       await Promise.all([
         redisClient.del(storeProductsCacheKey),
         redisClient.del(ownerStoresCacheKey),
         redisClient.del(inventoryCacheKey)
       ]);
     }
+
+    const productCat = savedProduct.category ? savedProduct.category.toLowerCase() : 'all';
+  await Promise.all([
+    redisClient.del(`products:global:cat:all:page:1:limit:12`),
+    redisClient.del(`products:global:cat:${productCat}:page:1:limit:12`)
+  ]);
 
     return sendRes(res, 201, true, "Product added successfully", savedProduct);
 
@@ -85,13 +91,13 @@ export const getStoreProducts = async (req, res) => {
 
     if (redisClient && redisClient.isOpen) {
       const cachedProducts = await redisClient.get(storeProductsCacheKey);
-      
+
       if (cachedProducts) {
         return sendRes(
-          res, 
-          200, 
-          true, 
-          "Products fetched successfully from cache", 
+          res,
+          200,
+          true,
+          "Products fetched successfully from cache",
           JSON.parse(cachedProducts)
         );
       }
@@ -101,8 +107,8 @@ export const getStoreProducts = async (req, res) => {
 
     if (redisClient && redisClient.isOpen) {
       await redisClient.setEx(
-        storeProductsCacheKey, 
-        3600, 
+        storeProductsCacheKey,
+        3600,
         JSON.stringify(products)
       );
     }
@@ -127,13 +133,13 @@ export const getSingleProduct = async (req, res) => {
 
     if (redisClient && redisClient.isOpen) {
       const cachedProduct = await redisClient.get(productCacheKey);
-      
+
       if (cachedProduct) {
         return sendRes(
-          res, 
-          200, 
-          true, 
-          "Product details fetched successfully from cache", 
+          res,
+          200,
+          true,
+          "Product details fetched successfully from cache",
           JSON.parse(cachedProduct)
         );
       }
@@ -147,8 +153,8 @@ export const getSingleProduct = async (req, res) => {
 
     if (redisClient && redisClient.isOpen) {
       await redisClient.setEx(
-        productCacheKey, 
-        3600, 
+        productCacheKey,
+        3600,
         JSON.stringify(product)
       );
     }
@@ -161,20 +167,20 @@ export const getSingleProduct = async (req, res) => {
   }
 };
 
-export const getOwnerInventory = async (req, res) => {
+export const getOwnerProductInventory = async (req, res) => {
   try {
     const storeId = req.store._id;
     const inventoryCacheKey = `store:inventory:${storeId}`;
 
     if (redisClient && redisClient.isOpen) {
       const cachedInventory = await redisClient.get(inventoryCacheKey);
-      
+
       if (cachedInventory) {
         return sendRes(
-          res, 
-          200, 
-          true, 
-          "Inventory fetched successfully from cache", 
+          res,
+          200,
+          true,
+          "Inventory fetched successfully from cache",
           JSON.parse(cachedInventory)
         );
       }
@@ -184,8 +190,8 @@ export const getOwnerInventory = async (req, res) => {
 
     if (redisClient && redisClient.isOpen) {
       await redisClient.setEx(
-        inventoryCacheKey, 
-        3600, 
+        inventoryCacheKey,
+        3600,
         JSON.stringify(inventory)
       );
     }
@@ -247,13 +253,13 @@ export const editProduct = async (req, res) => {
     }
 
     const finalPrice = updateFields.price !== undefined ? updateFields.price : product.price;
-    
+
     if (discountedPrice !== undefined) {
       const parsedDiscountedPrice = Number(discountedPrice);
       if (isNaN(parsedDiscountedPrice) || parsedDiscountedPrice < 0) {
         return sendRes(res, 400, false, "Discounted price cannot be negative");
       }
-      
+
       if (parsedDiscountedPrice > 0) {
         if (parsedDiscountedPrice >= finalPrice) {
           return sendRes(res, 400, false, "Discounted price must be less than the original price");
@@ -280,16 +286,22 @@ export const editProduct = async (req, res) => {
     );
 
     if (redisClient && redisClient.isOpen) {
-      const singleProductCacheKey = `product:${productId}`;        
-      const storeProductsCacheKey = `store:products:${storeId}`;    
-      const inventoryCacheKey = `store:inventory:${storeId}`;       
-      const ownerStoresCacheKey = `user:stores:${ownerId}`;         
+      const singleProductCacheKey = `product:${productId}`;
+      const storeProductsCacheKey = `store:products:${storeId}`;
+      const inventoryCacheKey = `store:inventory:${storeId}`;
+      const ownerStoresCacheKey = `user:stores:${ownerId}`;
+      
+      const oldProductCat = product.category ? product.category.toLowerCase() : 'all';
+      const newProductCat = updatedProduct.category ? updatedProduct.category.toLowerCase() : 'all';
 
       await Promise.all([
         redisClient.del(singleProductCacheKey),
         redisClient.del(storeProductsCacheKey),
         redisClient.del(inventoryCacheKey),
-        redisClient.del(ownerStoresCacheKey)
+        redisClient.del(ownerStoresCacheKey),
+        redisClient.del(`products:global:cat:all:page:1:limit:12`),
+        redisClient.del(`products:global:cat:${oldProductCat}:page:1:limit:12`),
+        redisClient.del(`products:global:cat:${newProductCat}:page:1:limit:12`) 
       ]);
     }
 
@@ -310,7 +322,7 @@ export const deleteProduct = async (req, res) => {
     if (!productId) {
       return sendRes(res, 400, false, "Product ID is required");
     }
-    
+
     const deletedProduct = await Product.findOneAndDelete({ _id: productId, storeId });
 
     if (!deletedProduct) {
@@ -331,10 +343,88 @@ export const deleteProduct = async (req, res) => {
       ]);
     }
 
+    const productCat = deletedProduct.category ? deletedProduct.category.toLowerCase() : 'all';
+  await Promise.all([
+    redisClient.del(`products:global:cat:all:page:1:limit:12`),
+    redisClient.del(`products:global:cat:${productCat}:page:1:limit:12`)
+  ]);
+
     return sendRes(res, 200, true, "Product deleted successfully from database and cache");
 
   } catch (error) {
     console.error("Delete Product Error:", error);
+    return sendRes(res, 500, false, "Internal server error: " + error.message);
+  }
+};
+
+export const getAllProductsGlobal = async (req, res) => {
+  try {
+    const { category } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 12;
+    const skip = (page - 1) * limit;
+
+    const queryConditions = { isActive: true };
+
+    let cacheCategoryKey = "all";
+    if (category && category.trim() !== "") {
+      const sanitizedCategory = category.trim().toLowerCase();
+      queryConditions.category = { $regex: new RegExp(`^${sanitizedCategory}$`, 'i') };
+      cacheCategoryKey = sanitizedCategory;
+    }
+
+    const globalProductsCacheKey = `products:global:cat:${cacheCategoryKey}:page:${page}:limit:${limit}`;
+
+    if (redisClient && redisClient.isOpen) {
+      const cachedProducts = await redisClient.get(globalProductsCacheKey);
+      if (cachedProducts) {
+        return sendRes(
+          res,
+          200,
+          true,
+          "Global products fetched successfully from cache",
+          JSON.parse(cachedProducts)
+        );
+      }
+    }
+
+    const [products, totalProducts] = await Promise.all([
+      Product.find(queryConditions)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate({
+          path: "storeId",
+          select: "storeName logo"
+        })
+        ,
+      Product.countDocuments(queryConditions)
+    ]);
+
+    const hasMore = skip + products.length < totalProducts;
+
+    const responseData = {
+      products,
+      meta: {
+        totalProducts,
+        currentPage: page,
+        limit,
+        hasMore
+      }
+    };
+
+    if (redisClient && redisClient.isOpen) {
+      await redisClient.setEx(
+        globalProductsCacheKey,
+        3600,
+        JSON.stringify(responseData)
+      );
+    }
+
+    return sendRes(res, 200, true, "Global products fetched successfully from database", responseData);
+
+  } catch (error) {
+    console.error("Get Global Products Error:", error);
     return sendRes(res, 500, false, "Internal server error: " + error.message);
   }
 };

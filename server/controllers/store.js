@@ -34,8 +34,16 @@ export const createStore = async (req, res) => {
       return sendRes(res, 404, false, "User not found");
     }
 
-    if (user.stores.length >= user.storesLimit) {
-      return sendRes(res, 400, false, `Store limit reached. Maximum ${user.storesLimit} stores allowed.`);
+    if (user.storesLimit <= 0) {
+      return sendRes(res, 400, false, `Store limit reached. Maximum 5 stores allowed.`);
+    }
+
+const nameExists = await Store.findOne({
+      storeName: { $regex: `^${storeName.trim()}$`, $options: "i" }
+    });
+
+    if (nameExists) {
+      return sendRes(res, 400, false, "A store with this name already exists. Please choose a unique name.");
     }
 
     let generatedSlug = storeName
@@ -147,13 +155,13 @@ export const editStore = async (req, res) => {
 
 export const getSingleStore = async (req, res) => {
   try {
-    const { storeId } = req.params;
+    const { slug } = req.params;
 
-    if (!storeId) {
+    if (!slug) {
       return sendRes(res, 400, false, "Store ID is required");
     }
 
-    const cacheKey = `store:${storeId}`;
+    const cacheKey = `store:${slug}`;
 
     const cachedStore = await redisClient.get(cacheKey);
 
@@ -165,7 +173,7 @@ export const getSingleStore = async (req, res) => {
 
     // console.log("Cache Miss: Fetching from MongoDB");
 
-    const dbStore = await Store.findById(storeId);
+    const dbStore = await Store.findOne({slug});
     if (!dbStore) {
       return sendRes(res, 404, false, "Store not found");
     }
@@ -201,7 +209,7 @@ export const getUserStores = async (req, res) => {
       return sendRes(res, 200, true, "User stores fetched successfully (cached)", storesData);
     }
 
-    const dbStores = await Store.find({ ownerId: userId });
+    const dbStores = await Store.find({ ownerId: userId }).select("_id storeName slug logo totalViews isActive");
 
     await redisClient.set(cacheKey, JSON.stringify(dbStores), {
       EX: 1800
@@ -213,3 +221,77 @@ export const getUserStores = async (req, res) => {
   }
 };
 
+export const getStoresByCategory = async (req, res) => {
+  try {
+    const { category } = req.params;
+    
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    if (!category || category.trim() === "") {
+      return sendRes(res, 400, false, "Category parameter is required");
+    }
+
+    const sanitizedCategory = category.trim().toLowerCase();
+    
+    const categoryCacheKey = `stores:category:${sanitizedCategory}:page:${page}:limit:${limit}`;
+
+    if (redisClient && redisClient.isOpen) {
+      const cachedData = await redisClient.get(categoryCacheKey);
+      
+      if (cachedData) {
+        return sendRes(
+          res, 
+          200, 
+          true, 
+          "Stores fetched successfully from cache", 
+          JSON.parse(cachedData)
+        );
+      }
+    }
+
+    const queryConditions = { 
+      category: { $regex: new RegExp(`^${sanitizedCategory}$`, 'i') }, 
+      isActive: true 
+    };
+
+    const [stores, totalStores] = await Promise.all([
+      Store.find(queryConditions)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Store.countDocuments(queryConditions)
+    ]);
+
+    if (!stores || stores.length === 0) {
+      return sendRes(res, 404, false, `No active stores found in '${category}' category`);
+    }
+
+    const hasMore = skip + stores.length < totalStores;
+
+    const responseData = {
+      stores,
+      meta: {
+        totalStores,
+        currentPage: page,
+        limit,
+        hasMore
+      }
+    };
+
+    if (redisClient && redisClient.isOpen) {
+      await redisClient.setEx(
+        categoryCacheKey, 
+        3600, 
+        JSON.stringify(responseData)
+      );
+    }
+
+    return sendRes(res, 200, true, "Stores fetched successfully from database", responseData);
+
+  } catch (error) {
+    console.error("Get Stores By Category Error:", error);
+    return sendRes(res, 500, false, "Internal server error: " + error.message);
+  }
+};

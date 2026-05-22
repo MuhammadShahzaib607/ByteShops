@@ -33,6 +33,10 @@ const serviceSchema = new mongoose.Schema(
       required: [true, 'Service duration in minutes is required'],
       min: [1, 'Duration must be at least 1 minute'],
     },
+    category: {
+      type: String,
+      required: [true, 'Service Category is required'],
+    },
     availableDays: [
       {
         type: String,
