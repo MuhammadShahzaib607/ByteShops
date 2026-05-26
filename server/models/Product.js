@@ -8,6 +8,12 @@ const productSchema = new mongoose.Schema(
       required: [true, 'Store ID is required'],
       index: true,
     },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: [true, 'Owner ID is required'],
+      index: true,
+    },
     name: {
       type: String,
       required: [true, 'Product name is required'],

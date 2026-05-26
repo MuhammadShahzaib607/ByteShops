@@ -58,6 +58,7 @@ export const addService = async (req, res) => {
 
     const newService = new Service({
       storeId,
+      createdBy: ownerId,
       name: name.trim(),
       description: description.trim(),
       price: parsedPrice,
@@ -198,18 +199,21 @@ export const getAllServicesGlobal = async (req, res) => {
     const limit = parseInt(req.query.limit) || 12; 
     const skip = (page - 1) * limit;
 
-    const queryConditions = { isActive: true };
+    const loggedInUserId = req.user.userId;
+
+    const queryConditions = { 
+      isActive: true,
+      createdBy: { $ne: loggedInUserId }
+    };
 
     let cacheCategoryKey = "all";
     if (category && category.trim() !== "") {
       const sanitizedCategory = category.trim();
-      
       queryConditions.category = { $regex: new RegExp(sanitizedCategory, 'i') };
-      
       cacheCategoryKey = sanitizedCategory.replace(/\s+/g, '-').toLowerCase();
     }
 
-    const globalServicesCacheKey = `services:global:cat:${cacheCategoryKey}:page:${page}:limit:${limit}`;
+    const globalServicesCacheKey = `services:global:u:${loggedInUserId}:cat:${cacheCategoryKey}:page:${page}:limit:${limit}`;
 
     if (redisClient && redisClient.isOpen) {
       const cachedServices = await redisClient.get(globalServicesCacheKey);

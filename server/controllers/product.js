@@ -47,6 +47,7 @@ export const addProduct = async (req, res) => {
 
     const newProduct = new Product({
       storeId,
+      createdBy: ownerId,
       name: name.trim(),
       description: description.trim(),
       imgs,
@@ -364,7 +365,12 @@ export const getAllProductsGlobal = async (req, res) => {
     const limit = parseInt(req.query.limit) || 12;
     const skip = (page - 1) * limit;
 
-    const queryConditions = { isActive: true };
+    const loggedInUserId = req.user.userId;
+
+    const queryConditions = { 
+      isActive: true,
+      createdBy: { $ne: loggedInUserId }
+    };
 
     let cacheCategoryKey = "all";
     if (category && category.trim() !== "") {
@@ -373,7 +379,7 @@ export const getAllProductsGlobal = async (req, res) => {
       cacheCategoryKey = sanitizedCategory;
     }
 
-    const globalProductsCacheKey = `products:global:cat:${cacheCategoryKey}:page:${page}:limit:${limit}`;
+    const globalProductsCacheKey = `products:global:u:${loggedInUserId}:cat:${cacheCategoryKey}:page:${page}:limit:${limit}`;
 
     if (redisClient && redisClient.isOpen) {
       const cachedProducts = await redisClient.get(globalProductsCacheKey);
@@ -396,8 +402,7 @@ export const getAllProductsGlobal = async (req, res) => {
         .populate({
           path: "storeId",
           select: "storeName logo"
-        })
-        ,
+        }),
       Product.countDocuments(queryConditions)
     ]);
 

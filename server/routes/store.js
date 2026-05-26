@@ -6,9 +6,9 @@ import { creationLimiter, generalLimiter } from "../utils/rateLimiter.js"
 
 const router = express.Router()
 
-router.post("/create", creationLimiter, verifyToken, createStore);
-router.put("/edit", creationLimiter, verifyToken, verifyStoreOwner, editStore);
-router.get("/my-stores", generalLimiter, verifyToken, getUserStores);
+router.post("/", creationLimiter, verifyToken, createStore);
+router.put("/", creationLimiter, verifyToken, verifyStoreOwner, editStore);
+router.get("/my-stores", verifyToken, getUserStores);
 router.get("/category/:category", generalLimiter, verifyToken, getStoresByCategory);
 router.get("/:slug", generalLimiter, verifyToken, getSingleStore);
 

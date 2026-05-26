@@ -11,7 +11,7 @@ router.get("/all", generalLimiter, verifyToken, getAllServicesGlobal)
 router.get("/my-inventory/:storeId", generalLimiter, verifyToken, verifyStoreOwner, getOwnerServicesInventory)
 router.put("/:serviceId", creationLimiter, verifyToken, verifyStoreOwner, editService)
 router.delete("/:serviceId", verifyToken, verifyStoreOwner, deleteService)
-router.post("/:storeId", creationLimiter, verifyToken, verifyStoreOwner, addService)
+router.post("/", creationLimiter, verifyToken, verifyStoreOwner, addService)
 router.get("/:serviceId", generalLimiter, verifyToken, getSingleService)
 
 
