@@ -1,3 +1,4 @@
+import Notification from '../models/Notification.js';
 import Order from '../models/Order.js';
 import Product from '../models/Product.js';
 import Store from '../models/Store.js';
@@ -102,8 +103,18 @@ export const createOrder = async (req, res) => {
       }
     });
 
-    const savedOrder = new Order(newOrder);
-    await savedOrder.save();
+    const savedOrder = await newOrder.save();
+
+    const newNotification = new Notification({
+      recipientId: ownerId,
+      orderId: savedOrder._id,
+      title: "New Order Received",
+      message: `Order has been successfully placed by ${customerInfo.name.trim()}. Total order value is Rs. ${grandTotal}. Please review the payment details in your dashboard to proceed with verification.`,
+      type: "Order_Update",
+      isRead: false
+    })
+
+    await newNotification.save();
 
     return sendRes(res, 201, true, "Order created successfully", savedOrder);
 
@@ -291,6 +302,7 @@ export const updateOrderStatus = async (req, res) => {
     const { orderId } = req.params;
     const { status } = req.body;
     const reqUserId = req.user.userId;
+    var isCancelledByCustomer = false
 
     if (!orderId || !status) {
       return sendRes(res, 400, false, "Order ID and status are required");
@@ -302,7 +314,7 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     const order =
-     await Order.findById(orderId);
+      await Order.findById(orderId).populate("storeId", "storeName");
     if (!order) {
       return sendRes(res, 404, false, "Order not found");
     }
@@ -316,6 +328,7 @@ export const updateOrderStatus = async (req, res) => {
 
     if (isCustomer) {
       if (status !== 'Cancelled') {
+        isCancelledByCustomer = true
         return sendRes(res, 400, false, "Customers are only allowed to cancel their orders");
       }
       if (order.status !== 'Placed') {
@@ -323,8 +336,29 @@ export const updateOrderStatus = async (req, res) => {
       }
     }
 
+    if (status === 'Cancelled' && order.status !== 'Cancelled') {
+      for (const item of order.products) {
+        await Product.findByIdAndUpdate(item.productId, {
+          $inc: { stock: item.quantity }
+        });
+      }
+    }
+
     order.status = status;
     await order.save();
+
+    if (!isCancelledByCustomer) {
+      const newNotification = new Notification({
+        recipientId: order.customerId,
+        orderId: order._id,
+        title: "Order Status Updated",
+        message: `Your order from ${order?.storeId?.storeName} has been updated to "${status}". You can track the progress and details of your shipment directly from your customer dashboard.`,
+        type: "Order_Update",
+        isRead: false
+      })
+
+      await newNotification.save()
+    }
 
     return sendRes(res, 200, true, `Order status updated to ${status} successfully`, order);
 
@@ -333,6 +367,145 @@ export const updateOrderStatus = async (req, res) => {
   }
 };
 
-// payment status update api for owner
-// payment screenshot upload api for customer
+export const updatePaymentStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { status, rejectionReason } = req.body;
 
+    if (!orderId || !status) {
+      return sendRes(res, 400, false, "Order ID and status are required");
+    }
+
+    const validPaymentStatuses = ['Paid', 'Rejected'];
+    if (!validPaymentStatuses.includes(status)) {
+      return sendRes(res, 400, false, "Invalid payment status. Only 'Paid' or 'Rejected' allowed.");
+    }
+
+    const order = await Order.findById(orderId).populate("storeId", "storeName");
+    if (!order) {
+      return sendRes(res, 404, false, "Order not found");
+    }
+
+    if (order.paymentDetails.status === 'Paid') {
+      return sendRes(res, 400, false, "This order is already marked as Paid");
+    }
+
+    if (order.paymentDetails.verificationAttempts >= 3) {
+      return sendRes(res, 400, false, "Verification limit reached (3 or more attempts). Action blocked.");
+    }
+
+    if (status === 'Paid') {
+      order.paymentDetails.status = 'Paid';
+      order.status = 'Processing';
+      order.paymentDetails.rejectionReason = undefined;
+    }
+
+    else if (status === 'Rejected') {
+      if (!rejectionReason) {
+        return sendRes(res, 400, false, "Rejection reason is required when status is Rejected");
+      }
+
+      const validReasons = ['Fake/Old Screenshot', 'Blurry/Unreadable Image', 'Incomplete Amount'];
+      if (!validReasons.includes(rejectionReason)) {
+        return sendRes(res, 400, false, "Invalid rejection reason provided");
+      }
+
+      order.paymentDetails.verificationAttempts += 1;
+      order.paymentDetails.status = 'Rejected';
+      order.paymentDetails.rejectionReason = rejectionReason;
+
+      if (order.paymentDetails.verificationAttempts >= 3) {
+        order.status = 'Cancelled';
+
+        const rollbackPromises = order.products.map(item => {
+          return Product.findByIdAndUpdate(item.productId, {
+            $inc: { stock: item.quantity }
+          });
+        });
+        await Promise.all(rollbackPromises);
+      }
+    }
+
+    await order.save();
+
+    const storeName = order?.storeId?.storeName || "the store";
+
+    const remainingAttempts = 3 - order.paymentDetails.verificationAttempts;
+
+    const notificationMessage =
+      status === "Paid"
+        ? `Your payment has been successfully verified by ${storeName}. Your order status is now processing.`
+        : status === "Rejected"
+          ? `Your payment screenshot was rejected by ${storeName}. Reason: ${rejectionReason || "Invalid receipt"}. Warning: You have ${remainingAttempts} verification attempts remaining before your order is automatically cancelled.`
+          : `Your payment status has been updated to ${status}.`;
+
+    const newNotification = new Notification({
+      recipientId: order.customerId,
+      orderId: order._id,
+      title: status === "Paid" ? "Payment Approved" : "Payment Action Required",
+      message: notificationMessage,
+      type: "Payment_Alert",
+      isRead: false
+    });
+
+    await newNotification.save();
+
+    return sendRes(res, 200, true, `Payment status updated to ${status} successfully`, order);
+
+  } catch (error) {
+    console.error("Update Payment Status Error:", error);
+    return sendRes(res, 500, false, "Internal server error: " + error.message);
+  }
+};
+
+export const uploadPaymentScreenshot = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { paymentScreenShot } = req.body;
+    const reqUserId = req.user.userId;
+
+    if (!orderId || !paymentScreenShot || paymentScreenShot.trim() === "") {
+      return sendRes(res, 400, false, "Order ID and payment screenshot string are required");
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return sendRes(res, 404, false, "Order not found");
+    }
+
+    const isCustomer = order.customerId.toString() === reqUserId.toString();
+    if (!isCustomer) {
+      return sendRes(res, 403, false, "Unauthorized: You can only upload screenshots for your own orders");
+    }
+
+    if (order.paymentDetails.status === 'Paid') {
+      return sendRes(res, 400, false, "This order is already marked as Paid. Cannot upload new screenshot.");
+    }
+
+    if (order.paymentDetails.verificationAttempts >= 3) {
+      return sendRes(res, 400, false, "Your verification attempts limit (3) has been reached. Action blocked.");
+    }
+
+    order.paymentDetails.paymentScreenShot = paymentScreenShot.trim();
+    order.paymentDetails.status = 'Awaiting Verification';
+
+    await order.save();
+
+    const newNotification = new Notification({
+      recipientId: order.ownerId,
+      orderId: order._id,
+      title: "Payment Receipt Uploaded",
+      message: `Customer ${order.customerInfo?.name || "A user"} has uploaded a payment screenshot. Please review the attached receipt in your dashboard to approve or reject the payment.`,
+      type: "Payment_Alert",
+      isRead: false
+    });
+
+    await newNotification.save()
+
+    return sendRes(res, 200, true, "Payment screenshot uploaded successfully. Awaiting verification.", order);
+
+  } catch (error) {
+    console.error("Upload Payment Screenshot Error:", error);
+    return sendRes(res, 500, false, "Internal server error: " + error.message);
+  }
+};

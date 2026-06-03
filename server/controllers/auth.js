@@ -74,10 +74,6 @@ export const login = async (req, res) => {
       return sendRes(res, 401, false, "Invalid credentials");
     }
 
-    if (user.isContinueWithGoogle !== false) {
-      await User.findByIdAndUpdate(user._id, { $set: { isContinueWithGoogle: false } });
-    }
-
     const token = jwt.sign(
       { userId: user._id, isAdmin: user.isAdmin },
       process.env.JWT_SECRET,
@@ -96,6 +92,93 @@ export const login = async (req, res) => {
   } catch (error) {
     console.error("Login Error:", error);
     return sendRes(res, 500, false, "Internal server error");
+  }
+};
+
+export const continueWithGoogle = async (req, res) => {
+  try {
+    const { email, username, profilePic, googleId, password } = req.body;
+
+    if (!email || !googleId || !username) {
+      return sendRes(res, 400, false, "Email, Username, and Google ID are required");
+    }
+
+    let user = await User.findOne({ googleId });
+
+    if (user) {
+      const token = jwt.sign(
+        { userId: user._id, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+      return sendRes(res, 200, true, "Login successful via Google", { user, token });
+    }
+
+    let existingUserByEmail = await User.findOne({ email });
+
+    if (existingUserByEmail) {
+      existingUserByEmail.googleId = googleId;
+      existingUserByEmail.isContinueWithGoogle = true;
+      if (!existingUserByEmail.profilePic && profilePic) {
+        existingUserByEmail.profilePic = profilePic;
+      }
+
+      await existingUserByEmail.save();
+
+      const token = jwt.sign(
+        { userId: existingUserByEmail._id, role: existingUserByEmail.role },
+        process.env.JWT_SECRET,
+        { expiresIn: "7d" }
+      );
+
+      return sendRes(res, 200, true, "Google account linked successfully with your existing profile", {
+        user: existingUserByEmail,
+        token
+      });
+    }
+
+    if (!password) {
+      return sendRes(res, 422, false, "New account registration requires a password specification");
+    }
+
+    if (password.length < 6) {
+      return sendRes(res, 400, false, "Password must be at least 6 characters long");
+    }
+
+    let finalUsername = username.toLowerCase().replace(/\s+/g, "");
+    const usernameExists = await User.findOne({ username: finalUsername });
+    if (usernameExists) {
+      finalUsername = `${finalUsername}${Math.floor(1000 + Math.random() * 9000)}`;
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const newUser = new User({
+      email,
+      username: finalUsername,
+      password: hashedPassword, 
+      profilePic: profilePic || null,
+      googleId,
+      isContinueWithGoogle: true,
+    });
+
+    await newUser.save();
+
+    const token = jwt.sign(
+      { userId: newUser._id, role: newUser.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return sendRes(res, 201, true, "Account registered successfully with password protection", {
+      user: newUser,
+      token
+    });
+
+  } catch (error) {
+    console.error("Google Auth Error:", error);
+    return sendRes(res, 500, false, "Internal server error: " + error.message);
   }
 };
 
@@ -169,81 +252,5 @@ const data = {
   } catch (error) {
     console.error("Get All Users Error:", error);
     return sendRes(res, 500, false, "Internal server error");
-  }
-};
-
-export const continueWithGoogle = async (req, res) => {
-  try {
-    const { email, googleId, username, profilePic } = req.body || {};
-
-    if (!email || !googleId || !username) {
-      return sendRes(res, 400, false, "Email, Google ID, and username are required");
-    }
-
-    const sanitizedEmail = email.trim().toLowerCase();
-    const sanitizedUsername = username.trim().toLowerCase();
-
-    let user = await User.findOne({ googleId });
-
-    if (user) {
-      if (user.email !== sanitizedEmail) {
-        return sendRes(res, 400, false, "Google ID and email mismatch");
-      }
-
-      const token = jwt.sign(
-        { userId: user._id, isAdmin: user.isAdmin },
-        process.env.JWT_SECRET,
-        { expiresIn: '7d' }
-      );
-
-      const userData = user.toObject();
-      delete userData.password;
-
-      return sendRes(res, 200, true, "Login successful with Google", {
-        user: userData,
-        token
-      });
-    }
-
-    const existingUser = await User.findOne({
-      $or: [{ email: sanitizedEmail }, { username: sanitizedUsername }]
-    });
-
-    if (existingUser) {
-      if (existingUser.email === sanitizedEmail) {
-        return sendRes(res, 400, false, "An account with this email already exists");
-      }
-      if (existingUser.username === sanitizedUsername) {
-        return sendRes(res, 400, false, "Username is already taken");
-      }
-    }
-
-    user = new User({
-      username: sanitizedUsername,
-      email: sanitizedEmail,
-      profilePic: profilePic || "",
-      googleId,
-      isContinueWithGoogle: true,
-    });
-
-    await user.save();
-
-    const token = jwt.sign(
-      { userId: user._id, isAdmin: user.isAdmin },
-      process.env.JWT_SECRET || 'YOUR_FALLBACK_SECRET_KEY',
-      { expiresIn: '7d' }
-    );
-
-    const userData = user.toObject();
-    delete userData.password;
-
-    return sendRes(res, 201, true, "Account registered successfully via Google", {
-      user: userData,
-      token
-    });
-
-  } catch (error) {
-    console.error("Continue With Google Error:", error);
-    return sendRes(res, 500, false, "Internal server error: " + error.message);
   }
 };
