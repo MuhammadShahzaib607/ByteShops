@@ -9,6 +9,7 @@ import storeViewRoutes from "./routes/storeView.js"
 import productRoutes from "./routes/product.js"
 import serviceRoutes from "./routes/service.js"
 import orderRoutes from "./routes/order.js"
+import appointmentRoutes from "./routes/appointment.js"
 import notificationRoutes from "./routes/notification.js"
 import { sendRes } from "./utils/responseHandler.js"
 
@@ -24,6 +25,7 @@ app.use("/api/views", storeViewRoutes)
 app.use("/api/product", productRoutes)
 app.use("/api/service", serviceRoutes)
 app.use("/api/order", orderRoutes)
+app.use("/api/appointment", appointmentRoutes)
 app.use("/api/notification", notificationRoutes)
 
 app.get("/", (req, res)=> {

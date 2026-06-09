@@ -107,7 +107,7 @@ export const createOrder = async (req, res) => {
 
     const newNotification = new Notification({
       recipientId: ownerId,
-      orderId: savedOrder._id,
+      refrenceId: savedOrder._id,
       title: "New Order Received",
       message: `Order has been successfully placed by ${customerInfo.name.trim()}. Total order value is Rs. ${grandTotal}. Please review the payment details in your dashboard to proceed with verification.`,
       type: "Order_Update",
@@ -350,7 +350,7 @@ export const updateOrderStatus = async (req, res) => {
     if (!isCancelledByCustomer) {
       const newNotification = new Notification({
         recipientId: order.customerId,
-        orderId: order._id,
+        refrenceId: order._id,
         title: "Order Status Updated",
         message: `Your order from ${order?.storeId?.storeName} has been updated to "${status}". You can track the progress and details of your shipment directly from your customer dashboard.`,
         type: "Order_Update",
@@ -441,7 +441,7 @@ export const updatePaymentStatus = async (req, res) => {
 
     const newNotification = new Notification({
       recipientId: order.customerId,
-      orderId: order._id,
+      refrenceId: order._id,
       title: status === "Paid" ? "Payment Approved" : "Payment Action Required",
       message: notificationMessage,
       type: "Payment_Alert",
@@ -493,7 +493,7 @@ export const uploadPaymentScreenshot = async (req, res) => {
 
     const newNotification = new Notification({
       recipientId: order.ownerId,
-      orderId: order._id,
+      refrenceId: order._id,
       title: "Payment Receipt Uploaded",
       message: `Customer ${order.customerInfo?.name || "A user"} has uploaded a payment screenshot. Please review the attached receipt in your dashboard to approve or reject the payment.`,
       type: "Payment_Alert",
