@@ -2,6 +2,7 @@ import express from "express"
 import dotenv from "dotenv"
 import cors from "cors"
 import mongoose from "mongoose"
+import cookieParser from "cookie-parser"
 import "./utils/redisClient.js"
 import authRoutes from "./routes/auth.js"
 import storeRoutes from "./routes/store.js"
@@ -16,7 +17,8 @@ import { sendRes } from "./utils/responseHandler.js"
 dotenv.config()
 const app = express()
 
-app.set("trust proxy", 1);
+app.set("trust proxy", 1);  
+app.use(cookieParser())
 app.use(cors())
 app.use(express.json())
 app.use("/api/user", authRoutes)

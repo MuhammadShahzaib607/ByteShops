@@ -2,9 +2,8 @@ import jwt from "jsonwebtoken"
 import { sendRes } from "./responseHandler.js";
 
 export const verifyToken = (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(" ")[1];
-
+   const token = req.cookies.token;
+   
     if (!token) {
         return sendRes(res, 401, false, "Token missing, please login again");
     }

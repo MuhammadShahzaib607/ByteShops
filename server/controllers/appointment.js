@@ -92,14 +92,14 @@ export const createAppointment = async (req, res) => {
       isCompleted: false
     });
 
-   const savedAppointment =  await newAppointment.save();
+    const savedAppointment = await newAppointment.save();
 
     const newNotification = new Notification({
-        recipientId: ownerId,
-        refrenceId: savedAppointment._id,
-        title: "New Booking Received!",
-        type: "Appointment",
-        message: `${customerInfo.name} has reserved a slot for ${service.name} on ${appointmentDate} at ${timeslot}. (Pay at Counter)`,
+      recipientId: ownerId,
+      refrenceId: savedAppointment._id,
+      title: "New Booking Received!",
+      type: "Appointment",
+      message: `${customerInfo.name} has reserved a slot for ${service.name} on ${appointmentDate} at ${timeslot}. (Pay at Counter)`,
     })
 
     newNotification.save();
@@ -310,7 +310,7 @@ export const updateAppointmentStatus = async (req, res) => {
       message = `Customer ${appointment.customerInfo.name} has cancelled the appointment for ${appointment.serviceDetails.name} scheduled on ${appointment.serviceDetails.appointmentDate} (${appointment.serviceDetails.timeslot}).`;
     } else if (isStoreOwner) {
       recipientId = appointment.customerId;
-      
+
       if (status === 'Confirmed') {
         title = "Appointment Confirmed!";
         message = `Your appointment for ${appointment.serviceDetails.name} on ${appointment.serviceDetails.appointmentDate} at ${appointment.serviceDetails.timeslot} has been confirmed by the store.`;
@@ -393,4 +393,30 @@ export const updateAppointmentPaymentStatus = async (req, res) => {
   }
 };
 
-// BookedSlots API ! 
+export const getBookedSlots = async (req, res) => {
+  try {
+    const { serviceId, date } = req.query
+    if (!serviceId || !date) {
+     return sendRes(res, 400, false, "serviceId and date are reuired")
+    }
+    const [appointments, totalCount] = await Promise.all([
+      Appointment.find({
+        serviceId,
+        "serviceDetails.appointmentDate": date,
+        status: { $in: ["Pending", "Confirmed"] }
+      }),
+      Appointment.countDocuments({
+        serviceId,
+        "serviceDetails.appointmentDate": date,
+        status: { $in: ["Pending", "Confirmed"] }
+      })
+    ])
+    const data = {
+      appointments,
+      totalAppointments: totalCount
+    }
+    sendRes(res, 200, true, "bookedSlots", data)
+  } catch (error) {
+    console.log(error.message)
+  }
+}

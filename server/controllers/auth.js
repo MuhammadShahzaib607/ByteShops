@@ -77,16 +77,23 @@ export const login = async (req, res) => {
     const token = jwt.sign(
       { userId: user._id, isAdmin: user.isAdmin },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' } 
+      { expiresIn: '60s' } 
     );
 
     const userData = user.toObject();
     delete userData.password;
-    userData.isContinueWithGoogle = false;
+
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    };
+
+    res.cookie("token", token, cookieOptions);
 
     return sendRes(res, 200, true, "Login successful", {
       user: userData,
-      token: token
     });
 
   } catch (error) {
@@ -254,3 +261,37 @@ const data = {
     return sendRes(res, 500, false, "Internal server error");
   }
 };
+
+export const validateToken = async (req, res) => {
+try {
+  const token = req.cookies.token;
+
+  if (!token) {
+    return sendRes(res, 404, false, "Token is Missing");
+  }
+
+const decode = jwt.verify(token, process.env.JWT_SECRET);
+
+sendRes(res, 200, true, "Token is Valid")
+
+} catch (error) {
+if (error.name === "TokenExpiredError") {
+            return sendRes(res, 401, false, "Token expired");
+        }
+        return sendRes(res, 401, false, "Invalid token");
+}
+};
+
+export const logout = async (req, res)=> {
+  try {
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict"
+    };
+    res.clearCookie("token", cookieOptions)
+    sendRes(res, 200, true, "Logout Successfully")
+  } catch (error) {
+    sendRes(res, 400, false, error.message)
+  }
+}
